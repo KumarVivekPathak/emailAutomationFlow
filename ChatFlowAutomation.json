@@ -1,0 +1,456 @@
+{
+  "name": "ChatFlowAutomation",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {
+          "responseMode": "responseNodes"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -368,
+        -16
+      ],
+      "id": "de7737f5-c6fb-4625-b3b7-3fb0c71bcae1",
+      "name": "When chat message received",
+      "webhookId": "da7c9dbd-c93f-4749-ba72-03a6d9fecd9a"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0d265696-5b40-437a-bc8e-e4a8b2b16899",
+              "name": "sessionId",
+              "value": "={{ $json.sessionId }}",
+              "type": "string"
+            },
+            {
+              "id": "2f1a30a8-cbbd-4a40-9aa5-940ba17e5f88",
+              "name": "chatInput",
+              "value": "={{ $json.chatInput }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -160,
+        -16
+      ],
+      "id": "9722d3f7-b94b-46d1-b0d3-d037ae70419a",
+      "name": "Set Content"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-2.0-flash",
+          "mode": "list",
+          "cachedResultName": "models/gemini-2.0-flash"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=You are a multilingual support classifier.  \nYour job is to analyze the user's message (in ANY language) and decide what type of query it is.  \n\nCategories:\n1. \"greeting\" → if the message is a greeting (examples: \"hi\", \"hello\", \"namaste\", \"hola\", \"bonjour\", \"salam\", etc.).\n2. \"customer_support\" → if the message is asking for help, support, complaints, or service requests (examples: \"I need help\", \"my order is late\", \"issue with payment\", \"support please\").\n3. \"other\" → if the message does not fit in the above two categories.\n\nInput : {{ $json.chatInput }}\n\nOutput:\nReturn only a JSON object in this exact format:\n{\n  \"type\": \"greeting\" | \"customer_support\" | \"other\"\n}\n\nDo not include any explanation outside the JSON.\n "
+            },
+            {}
+          ]
+        },
+        "simplify": false,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1,
+      "position": [
+        48,
+        -16
+      ],
+      "id": "4791e78d-e820-4d2c-90b6-953ace272a7b",
+      "name": "Ask For Role",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "D1OBGCuEPVQV16w6",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "for (const item of $input.all()) {\n  // Copy original chat message for later use\n  item.json.userMessage = $('Set Content').first().json.chatInput\n\n  // Extract type from Gemini response (like you’re already doing)\n  const rawText = item.json.candidates[0].content.parts[0].text;\n  const cleanText = rawText.replace(/```json|```/g, '').trim();\n  const parsed = JSON.parse(cleanText);\n  item.json.type = parsed.type || \"other\";\n}\n\nreturn $input.all();\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        -16
+      ],
+      "id": "a6d16448-1669-4dad-8f18-d7f07e8263ea",
+      "name": "Role Clear"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "customer_support",
+                    "rightValue": "={{ $json.type }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "794b7530-bc1a-42ca-bc76-05cb2a644508"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "8ac491e1-7ada-4467-b495-fceca528c313",
+                    "leftValue": "greeting",
+                    "rightValue": "={{ $json.type }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "084e9aa8-4b9d-48e5-b2d0-02faa9a73c4b",
+                    "leftValue": "other",
+                    "rightValue": "={{ $json.type }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        608,
+        -32
+      ],
+      "id": "676a4f85-b363-470e-bff1-6c5d8d4f335d",
+      "name": "Switch for role specs"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        976,
+        352
+      ],
+      "id": "9b1ff954-2796-4132-b887-783d35ec5d98",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "D1OBGCuEPVQV16w6",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        928,
+        -16
+      ],
+      "id": "eb016252-1f77-4391-86c9-43a3ad79e88c",
+      "name": "Google Gemini Chat Model1",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "D1OBGCuEPVQV16w6",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a multilingual support agent.  \nThe user may send a greeting or a casual small-talk greeting in ANY language.  \n\nInput: {{ $json.userMessage }}\n\nYour job:  \n1. Detect the language of the user’s message.  \n2. If the message is a greeting OR small-talk greeting (like \"hi\", \"hello\", \"namaste\", \"hola\", \"bonjour\", \"salam\", \"how are you?\", \"how’s it going?\", \"क्या हाल है?\" etc.), reply ONLY in that same language using the following template:  \n\n\"Namaste Ji!  \nWelcome to The Batra Numerology 🌟  \n\nWe’re here to guide you through Numerology, Remedies, Destiny Reports, and more.  \nHow can we assist you today? 😊\"  \n\nRules:  \n- Always keep the emojis 🌟 and 😊 exactly the same.  \n- Do not add explanations or extra text outside this template.  \n- Translate the whole reply naturally into the detected language.  \n- If the user sends in English, reply in English. If in Hindi, reply in Hindi. If in Spanish, reply in Spanish, etc.  \n- If the user’s message is not a greeting/small talk greeting, do not answer (leave the output empty).\n",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        976,
+        144
+      ],
+      "id": "2981d410-b23d-4000-8244-713b0e4007df",
+      "name": "Greeting Agent"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Set Content').item.json.chatInput }}",
+        "options": {
+          "systemMessage": "=You are a customer support AI assistant.  \nUse the following document as your knowledge base to answer user queries:\n\nReference Document: the google doc attached here.\n\nUser Question:\n{{ $('Set Content').item.json.chatInput }}\n\nInstructions:\n- Answer ONLY using the information in the reference document.  \n- If the answer is not found in the reference, reply:  \n  \"Please wait for some time our team will assist you shortly.\"  \n- Reply clearly and politely.  \n- Do not invent information outside the document.  \n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        960,
+        -176
+      ],
+      "id": "97e681db-3e77-472c-aae8-dabe2914b2ea",
+      "name": "Reply Agent"
+    },
+    {
+      "parameters": {
+        "message": "={{ $json.output }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chat",
+      "typeVersion": 1,
+      "position": [
+        1744,
+        -384
+      ],
+      "id": "23a8c6f4-c5b7-41c8-a16d-b11de1818862",
+      "name": "Respond to Reply"
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1456,
+        -48
+      ],
+      "id": "0bb88b18-6231-4810-a75b-98223d3ce89c",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "documentURL": "https://docs.google.com/document/d/1FazmGkEeuL4GLJovj0oQyHES4kcZ_4rfU9pGrgR-3xI/edit?usp=sharing"
+      },
+      "type": "n8n-nodes-base.googleDocsTool",
+      "typeVersion": 2,
+      "position": [
+        1184,
+        -16
+      ],
+      "id": "858542a8-08f1-437b-ab43-aa8d591c8b35",
+      "name": "SupportDoc",
+      "credentials": {
+        "googleDocsOAuth2Api": {
+          "id": "UZh2fRpEUE2hQB1z",
+          "name": "Google Docs account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "message": "={{ $json.output }}",
+        "waitUserReply": false,
+        "options": {
+          "memoryConnection": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.chat",
+      "typeVersion": 1,
+      "position": [
+        1808,
+        -32
+      ],
+      "id": "d7fca96a-c6b7-48b2-aa9c-251887af44ea",
+      "name": "Respond to Message"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Set Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Content": {
+      "main": [
+        [
+          {
+            "node": "Ask For Role",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ask For Role": {
+      "main": [
+        [
+          {
+            "node": "Role Clear",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Role Clear": {
+      "main": [
+        [
+          {
+            "node": "Switch for role specs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch for role specs": {
+      "main": [
+        [
+          {
+            "node": "Reply Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Greeting Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Greeting Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Reply Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reply Agent": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Greeting Agent": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Respond to Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SupportDoc": {
+      "ai_tool": [
+        [
+          {
+            "node": "Reply Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "028e8ffd-3d4c-4b8b-8cd7-4474fb67b637",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "18c74ed93cb53b3d46a573843f5fb3cc0a31efa7b79e53b5249cfd47945420f1"
+  },
+  "id": "Nnamc2HqBMIwzRr1",
+  "tags": []
+}
