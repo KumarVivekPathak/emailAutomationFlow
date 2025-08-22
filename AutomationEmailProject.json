@@ -1,0 +1,397 @@
+{
+  "name": "AutomationEmailProject",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "simple": false,
+        "filters": {},
+        "options": {
+          "dataPropertyAttachmentsPrefixName": "attachment_"
+        }
+      },
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -496,
+        -16
+      ],
+      "id": "f385ef00-1469-491e-95cd-8ff49e2483bc",
+      "name": "Gmail Trigger",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "guIO6AP4EqmjdCBn",
+          "name": "Gmail account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a6ff1ac3-e053-423c-a73e-c592efd613e6",
+              "name": "emailBody",
+              "value": "={{ $json.text }}",
+              "type": "string"
+            },
+            {
+              "id": "4f15b96c-25f8-4dcc-bf86-9a900e0a61eb",
+              "name": "threadId",
+              "value": "={{ $json.threadId }}",
+              "type": "string"
+            },
+            {
+              "id": "5bf8b98e-55d4-431d-8f2a-d99a04e7bf5e",
+              "name": "from",
+              "value": "={{ $json.from.value[0].address }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -288,
+        -16
+      ],
+      "id": "82ea51ee-4778-44e1-a14d-2f345b69d7e4",
+      "name": "Set Content"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "2a4fb4b4-9f8e-4324-8471-505d133dc0de",
+                    "leftValue": "={{ $json.customerSupport }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "44000d8c-1e87-4b6d-a16f-6a8a4bfb954a",
+                    "leftValue": "={{ $json.customerSupport }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "false",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        512,
+        -16
+      ],
+      "id": "afe1fb20-6621-4f5a-b614-5ddd9ce75c58",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "jsCode": "let output = items[0].json.content?.parts?.[0]?.text || items[0].json?.text || \"\";\n\n// Remove markdown wrappers (```json ... ```)\noutput = output.replace(/```json|```/g, '').trim();\n\nlet parsed;\ntry {\n  parsed = JSON.parse(output);\n} catch (e) {\n  // If parsing fails, default to false\n  parsed = { customerSupport: false };\n}\n\nreturn [{ json: parsed }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        272,
+        -16
+      ],
+      "id": "2e2d2d7e-7061-4d3a-b40c-e6ca0952b1df",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Set Content').item.json.emailBody }}",
+        "options": {
+          "systemMessage": "=You are a customer support AI the following document as reference to answer queries:\nYou can give me reply based on this goole doc take the access of this sheet. Get context from the google doc atteched here. \n\n\nQuestion: {{ $('Set Content').item.json.emailBody }}\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        880,
+        -192
+      ],
+      "id": "50505a88-adf5-488f-ad14-ce7d36372890",
+      "name": "Customer Support Agent"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-2.5-flash",
+          "mode": "list",
+          "cachedResultName": "models/gemini-2.5-flash"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=You are an email classifier.  \nDecide if the following email is a customer support query (asking for help, reporting issues, or needing assistance).  \n\nReturn ONLY valid JSON, with no extra text, no explanation, no markdown:  \n\n{\n  \"customerSupport\": true | false\n}\n\nEmail: {{ $json[\"emailBody\"] }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        -16
+      ],
+      "id": "f5447632-0b15-4427-b5fa-3246c842fb68",
+      "name": "Message a model1",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "dddjXfHLi61M0tEh",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        784,
+        64
+      ],
+      "id": "5aebd8ba-bd69-476d-897a-a46d892e02ec",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "dddjXfHLi61M0tEh",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "draft",
+        "subject": "= {{ $('Gmail Trigger').item.json.subject }}",
+        "message": "={{ $json.output }} \n\nBest Regards:\nTeam,\nThe Batraa Numerology",
+        "options": {
+          "replyTo": "={{ $('Set Content').item.json.from }}",
+          "sendTo": "={{ $('Set Content').item.json.from }}"
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1232,
+        -192
+      ],
+      "id": "c749b012-8f39-4bb8-83e9-d50a2130d89a",
+      "name": "Create a draft",
+      "webhookId": "a7c92277-d391-4526-828e-05c09400d8d1",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "guIO6AP4EqmjdCBn",
+          "name": "Gmail account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "documentURL": "https://docs.google.com/document/d/1FazmGkEeuL4GLJovj0oQyHES4kcZ_4rfU9pGrgR-3xI/edit?usp=sharing"
+      },
+      "type": "n8n-nodes-base.googleDocsTool",
+      "typeVersion": 2,
+      "position": [
+        1232,
+        80
+      ],
+      "id": "29f8cf20-388b-4900-80da-705da3c9aa87",
+      "name": "Get a document in Google Docs",
+      "credentials": {
+        "googleDocsOAuth2Api": {
+          "id": "lDm1zDfpZ87laNN5",
+          "name": "Google Docs account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "reply",
+        "messageId": "={{ $json.message.threadId }}",
+        "emailType": "text",
+        "message": "={{ $('Customer Support Agent').item.json.output }} \n\nBest Regards,\nTeam,\nThe Batraa Numerology.",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1504,
+        -192
+      ],
+      "id": "5f49b900-e0fe-42d6-bc8e-4cc79ddf61af",
+      "name": "Reply to a message",
+      "webhookId": "eceeba8e-fb22-49dd-9a00-47c698a5358f",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "guIO6AP4EqmjdCBn",
+          "name": "Gmail account 3"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "Set Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Content": {
+      "main": [
+        [
+          {
+            "node": "Message a model1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Customer Support Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model1": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Customer Support Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Customer Support Agent": {
+      "main": [
+        [
+          {
+            "node": "Create a draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get a document in Google Docs": {
+      "ai_tool": [
+        [
+          {
+            "node": "Customer Support Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create a draft": {
+      "main": [
+        [
+          {
+            "node": "Reply to a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "c0bc6507-cb40-4a28-a145-b4ab842ec878",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c2df517bbd4746fcbf1ec86bd90498044cb1140d1fa090c8ba5bd34b7b18d6dd"
+  },
+  "id": "NmyF42MTUoHhiQq7",
+  "tags": []
+}
